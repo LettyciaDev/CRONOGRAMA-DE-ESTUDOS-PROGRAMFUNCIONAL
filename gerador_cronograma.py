@@ -58,3 +58,12 @@ EXEMPLO = {
         {"nome": "Paradigmas", "peso": 2, "dificuldade": 2, "prova": "2026-11-10"},
     ],
 }
+
+horas_necessarias = lambda fator: lambda d: d.peso * d.dificuldade * fator
+
+# prova mais próxima primeiro (desempate pelo nome)
+ordenar = lambda ds: sorted(ds, key=lambda d: (d.prova, d.nome))
+
+dias = lambda ini, fim: tuple(
+    ini + timedelta(days=i) for i in range((fim - ini).days + 1)
+)
