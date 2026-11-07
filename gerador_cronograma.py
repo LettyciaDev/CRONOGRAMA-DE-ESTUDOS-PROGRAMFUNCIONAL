@@ -67,3 +67,13 @@ ordenar = lambda ds: sorted(ds, key=lambda d: (d.prova, d.nome))
 dias = lambda ini, fim: tuple(
     ini + timedelta(days=i) for i in range((fim - ini).days + 1)
 )
+
+# estado = (restante: {nome: horas}, livre_no_dia, alocacoes_do_dia)
+passo_disc = lambda dia: lambda e, d: (
+    lambda h: (
+        {**e[0], d.nome: round(e[0][d.nome] - h, 6)},
+        round(e[1] - h, 6),
+        e[2] + ((Alocacao(dia, d.nome, h),) if h > 0 else ()),
+    )
+)(min(e[0][d.nome], e[1]) if dia < d.prova else 0)  # só estuda até a véspera
+
