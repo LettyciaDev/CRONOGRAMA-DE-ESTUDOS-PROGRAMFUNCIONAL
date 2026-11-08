@@ -99,3 +99,44 @@ planejar = lambda cfg: (
     ),
     {d.nome: horas_necessarias(cfg.fator)(d) for d in cfg.disciplinas},
 )
+
+# Saída: relatório (texto puro) e CSV
+total_disc = lambda alocs, nome: round(
+    sum(a.horas for a in alocs if a.nome == nome), 6
+)
+
+dias_livres = lambda plano: (
+    lambda usados: tuple(d for d in plano.janela if d not in usados)
+)({a.dia for a in plano.alocs})
+
+linha_plano = lambda a: f"{fmt_d(a.dia)}  {a.nome:<24}{fmt_h(a.horas):>5} h"
+
+linha_resumo = lambda alocs: lambda d: (
+    f"- {d.nome}: {fmt_h(total_disc(alocs, d.nome))} h (prova em {fmt_d(d.prova)})"
+)
+
+bloco_aviso = lambda plano: (
+    (
+        "",
+        "ATENÇÃO: horas sem alocação no tempo disponível:",
+    )
+    + tuple(f"- {n}: {fmt_h(h)} h" for n, h in plano.pendentes.items())
+    if plano.pendentes
+    else ()
+)
+
+relatorio = lambda cfg, plano: "\n".join(
+    ("CRONOGRAMA DE ESTUDOS", "", "Dia    Disciplina              Horas", "-" * 38)
+    + tuple(map(linha_plano, plano.alocs))
+    + ("", "RESUMO")
+    + tuple(map(linha_resumo(plano.alocs), ordenar(cfg.disciplinas)))
+    + (
+        "",
+        f"Total: {fmt_h(sum(a.horas for a in plano.alocs))} h em "
+        f"{len({a.dia for a in plano.alocs})} dia(s), "
+        f"limite de {fmt_h(cfg.limite)} h/dia.",
+        "Dias livres para revisão: "
+        + (", ".join(map(fmt_d, dias_livres(plano))) or "nenhum"),
+    )
+    + bloco_aviso(plano)
+)
