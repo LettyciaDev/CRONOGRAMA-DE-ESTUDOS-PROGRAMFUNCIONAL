@@ -77,3 +77,25 @@ passo_disc = lambda dia: lambda e, d: (
     )
 )(min(e[0][d.nome], e[1]) if dia < d.prova else 0)  # só estuda até a véspera
 
+# estado = (restante, alocacoes_acumuladas)
+aloca_dia = lambda ordenadas, limite: lambda estado, dia: (
+    lambda r: (r[0], estado[1] + r[2])
+)(reduce(passo_disc(dia), ordenadas, (estado[0], limite, ())))
+
+planejar = lambda cfg: (
+    lambda ordenadas, janela, inicial: (
+        lambda final: Plano(
+            janela,
+            final[1],
+            {n: h for n, h in final[0].items() if h > 0},
+        )
+    )(reduce(aloca_dia(ordenadas, cfg.limite), janela, (inicial, ())))
+)(
+    ordenar(cfg.disciplinas),
+    dias(
+        cfg.inicio,
+        max((d.prova for d in cfg.disciplinas), default=cfg.inicio)
+        - timedelta(days=1),
+    ),
+    {d.nome: horas_necessarias(cfg.fator)(d) for d in cfg.disciplinas},
+)
