@@ -140,3 +140,20 @@ relatorio = lambda cfg, plano: "\n".join(
     )
     + bloco_aviso(plano)
 )
+
+csv_texto = lambda alocs: (
+    "\n".join(
+        ("dia,disciplina,horas",)
+        + tuple(
+            f"{a.dia:%d/%m/%Y},{aspas(a.nome)},{fmt_h(a.horas)}" for a in alocs
+        )
+    )
+    + "\n"
+)
+
+pipeline = compor(
+    parse_config,
+    validar,
+    lambda cfg: (cfg, planejar(cfg)),
+    lambda t: (t[1], relatorio(t[0], t[1])),
+)
