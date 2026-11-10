@@ -23,24 +23,43 @@ fmt_d = lambda d: f"{d:%d/%m}"
 aspas = lambda s: '"' + s.replace('"', '""') + '"'
 
 # Entrada
-
-parse_config = lambda bruto: Config(
-    data(bruto["inicio"]),
-    float(bruto["limite_diario"]),
-    float(bruto.get("fator", 1)),
-    tuple(
-        Disc(d["nome"], int(d["peso"]), int(d["dificuldade"]), data(d["prova"]))
-        for d in bruto["disciplinas"]
-    ),
+etapas = lambda ini: lambda b: (
+    Disc(f"{b['nome']} (GQ1)", int(b["dificuldade"]), float(b["horas"]) / 2,
+         ini, data(b["gq1"])),
+    Disc(f"{b['nome']} (GQ2)", int(b["dificuldade"]), float(b["horas"]) / 2,
+         data(b["gq1"]) + timedelta(days=1), data(b["gq2"])),
 )
+
+parse_config = lambda bruto: (
+    lambda ini: Config(
+        ini,
+        float(bruto["limite_semana"]),
+        float(bruto["limite_sabado"]),
+        tuple(t for b in bruto["disciplinas"] for t in etapas(ini)(b)),
+    )
+)(data(bruto["inicio"]))
 
 erros_config = lambda cfg: (
     tuple(
-        f"{d.nome}: peso e dificuldade devem estar entre 1 e 5"
+        f"{d.nome}: dificuldade deve estar entre 1 e 5"
         for d in cfg.disciplinas
-        if not (1 <= d.peso <= 5 and 1 <= d.dificuldade <= 5)
+        if not 1 <= d.dificuldade <= 5
     )
-    + (("limite diário deve ser maior que zero",) if cfg.limite <= 0 else ())
+    + tuple(
+        f"{d.nome}: horas devem ser maiores que zero"
+        for d in cfg.disciplinas
+        if d.horas <= 0
+    )
+    + tuple(
+        f"{d.nome}: a prova deve ser depois do início do estudo"
+        for d in cfg.disciplinas
+        if d.prova <= d.inicio
+    )
+    + (
+        ("limites diários devem ser maiores que zero",)
+        if min(cfg.lim_semana, cfg.lim_sabado) <= 0
+        else ()
+    )
 )
 
 validar = lambda cfg: (
@@ -50,12 +69,14 @@ validar = lambda cfg: (
 )
 
 EXEMPLO = {
-    "inicio": "2026-11-02",
-    "limite_diario": 4,
+    "inicio": "2027-02-22",
+    "limite_semana": 4,
+    "limite_sabado": 2,
     "disciplinas": [
-        {"nome": "Ciência de Dados", "peso": 3, "dificuldade": 4, "prova": "2026-11-06"},
-        {"nome": "Computação Gráfica", "peso": 2, "dificuldade": 3, "prova": "2026-11-09"},
-        {"nome": "Paradigmas", "peso": 2, "dificuldade": 2, "prova": "2026-11-10"},
+        {"nome": "Ciência de Dados", "dificuldade": 4, "horas": 45,
+         "gq1": "2027-04-10", "gq2": "2027-06-12"},
+        {"nome": "Paradigmas", "dificuldade": 2, "horas": 30,
+         "gq1": "2027-04-12", "gq2": "2027-06-14"},
     ],
 }
 
