@@ -1,6 +1,7 @@
 import argparse
 import json
 import sys
+import streamlit as st
 from collections import namedtuple
 from datetime import date, datetime, timedelta
 from functools import reduce
@@ -217,3 +218,51 @@ if __name__ == "__main__":
     cfg, plano, texto = pipeline(bruto)
     print(texto)
     args.csv and Path(args.csv).write_text(csv_texto(cfg, plano.alocs), encoding="utf-8")
+
+# INTERFACE COM STREAMLIT
+# ==========================================
+
+st.set_page_config(page_title="Gerador de Cronograma de Estudos", layout="wide")
+
+st.title("Gerador de Cronograma de Estudos")
+st.write("Insira a configuração em formato JSON abaixo ou utilize o exemplo padrão para gerar seu cronograma.")
+
+with st.sidebar:
+    st.header("Configuração")
+    arquivo_up = st.file_uploader("Carregar arquivo JSON", type=["json"])
+    st.markdown("---")
+    st.info("O JSON deve conter as chaves `inicio`, `limite_semana`, `limite_sabado` e a lista de `disciplinas`.")
+
+# Define o JSON inicial na sessão ou pega do uploader
+if arquivo_up is not None:
+    try:
+        conteudo_json = json.load(arquivo_up)
+    except Exception as e:
+        st.error(f"Erro ao ler o arquivo JSON: {e}")
+        conteudo_json = EXEMPLO
+else:
+    conteudo_json = EXEMPLO
+
+json_str = st.text_area("JSON de Configuração", value=json.dumps(conteudo_json, indent=4, ensure_ascii=False), height=350)
+
+if st.button("Gerar Cronograma", type="primary"):
+    try:
+        dados_parsed = json.loads(json_str)
+        cfg, plano, texto_relatorio = pipeline(dados_parsed)  # Ajustado para 3 valores
+        
+        st.success("Cronograma gerado com sucesso!")
+        
+        # Exibição do relatório em formato de texto pré-formatado
+        st.text(texto_relatorio)
+        
+        # Botão de download do CSV (passando cfg e plano.alocs)
+        csv_data = csv_texto(cfg, plano.alocs)
+        st.download_button(
+            label="Baixar Cronograma em CSV",
+            data=csv_data,
+            file_name="cronograma.csv",
+            mime="text/csv",
+        )
+        
+    except Exception as e:
+        st.error(f"Ocorreu um erro ao processar o cronograma: {e}")
