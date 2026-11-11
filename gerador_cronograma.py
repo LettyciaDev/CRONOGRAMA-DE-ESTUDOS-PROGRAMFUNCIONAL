@@ -184,11 +184,13 @@ relatorio = lambda cfg, plano: "\n".join(
     + bloco_aviso(plano)
 )
 
-csv_texto = lambda alocs: (
+csv_texto = lambda cfg, alocs: (
     "\n".join(
-        ("dia,disciplina,horas",)
+        ("dia,disciplina,horas,sugestao",)
         + tuple(
-            f"{a.dia:%d/%m/%Y},{aspas(a.nome)},{fmt_h(a.horas)}" for a in alocs
+            f"{a.dia:%d/%m/%Y},{aspas(a.nome)},{fmt_h(a.horas)},"
+            f"{fase(progresso(cfg, alocs)(a))}"
+            for a in alocs
         )
     )
     + "\n"
@@ -198,7 +200,7 @@ pipeline = compor(
     parse_config,
     validar,
     lambda cfg: (cfg, planejar(cfg)),
-    lambda t: (t[1], relatorio(t[0], t[1])),
+    lambda t: (t[0], t[1], relatorio(t[0], t[1])),
 )
 
 if __name__ == "__main__":
@@ -212,6 +214,6 @@ if __name__ == "__main__":
         if args.entrada
         else EXEMPLO
     )
-    plano, texto = pipeline(bruto)
+    cfg, plano, texto = pipeline(bruto)
     print(texto)
-    args.csv and Path(args.csv).write_text(csv_texto(plano.alocs), encoding="utf-8")
+    args.csv and Path(args.csv).write_text(csv_texto(cfg, plano.alocs), encoding="utf-8")
