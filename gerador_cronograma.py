@@ -80,13 +80,19 @@ EXEMPLO = {
     ],
 }
 
-horas_necessarias = lambda fator: lambda d: d.peso * d.dificuldade * fator
+# prova mais próxima primeiro; em empate, a mais difícil; depois pelo nome
+ordenar = lambda ds: sorted(ds, key=lambda d: (d.prova, -d.dificuldade, d.nome))
 
-# prova mais próxima primeiro (desempate pelo nome)
-ordenar = lambda ds: sorted(ds, key=lambda d: (d.prova, d.nome))
-
+# dias de estudo: segunda a sábado (domingo é livre)
 dias = lambda ini, fim: tuple(
-    ini + timedelta(days=i) for i in range((fim - ini).days + 1)
+    ini + timedelta(days=i)
+    for i in range((fim - ini).days + 1)
+    if (ini + timedelta(days=i)).weekday() != 6
+)
+
+# limite de horas do dia: sábado tem limite menor
+limite_dia = lambda cfg: lambda dia: (
+    cfg.lim_sabado if dia.weekday() == 5 else cfg.lim_semana
 )
 
 # estado = (restante: {nome: horas}, livre_no_dia, alocacoes_do_dia)
