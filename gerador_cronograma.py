@@ -102,8 +102,7 @@ passo_disc = lambda dia: lambda e, d: (
         round(e[1] - h, 6),
         e[2] + ((Alocacao(dia, d.nome, h),) if h > 0 else ()),
     )
-)(min(e[0][d.nome], e[1]) if dia < d.prova else 0)  # só estuda até a véspera
-
+)(min(e[0][d.nome], e[1]) if d.inicio <= dia < d.prova else 0)  # só estuda no intervalo da etapa
 # estado = (restante, alocacoes_acumuladas)
 aloca_dia = lambda ordenadas, limite: lambda estado, dia: (
     lambda r: (r[0], estado[1] + r[2])
