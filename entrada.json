@@ -1,0 +1,11 @@
+{
+  "inicio": "2027-02-22",
+  "limite_semana": 4,
+  "limite_sabado": 2,
+  "disciplinas": [
+    {"nome": "Ciência de Dados", "dificuldade": 4, "horas": 45,
+     "gq1": "2027-04-10", "gq2": "2027-06-12"},
+    {"nome": "Paradigmas", "dificuldade": 2, "horas": 30,
+     "gq1": "2027-04-12", "gq2": "2027-06-14"}
+  ]
+}

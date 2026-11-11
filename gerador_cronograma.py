@@ -7,8 +7,8 @@ from functools import reduce
 from pathlib import Path
 
 # Tipos imutáveis
-Disc = namedtuple("Disc", "nome peso dificuldade prova")
-Config = namedtuple("Config", "inicio limite fator disciplinas")
+Disc = namedtuple("Disc", "nome dificuldade horas inicio prova")
+Config = namedtuple("Config", "inicio lim_semana lim_sabado disciplinas")
 Alocacao = namedtuple("Alocacao", "dia nome horas")
 Plano = namedtuple("Plano", "janela alocs pendentes")
 
@@ -23,24 +23,43 @@ fmt_d = lambda d: f"{d:%d/%m}"
 aspas = lambda s: '"' + s.replace('"', '""') + '"'
 
 # Entrada
-
-parse_config = lambda bruto: Config(
-    data(bruto["inicio"]),
-    float(bruto["limite_diario"]),
-    float(bruto.get("fator", 1)),
-    tuple(
-        Disc(d["nome"], int(d["peso"]), int(d["dificuldade"]), data(d["prova"]))
-        for d in bruto["disciplinas"]
-    ),
+etapas = lambda ini: lambda b: (
+    Disc(f"{b['nome']} (GQ1)", int(b["dificuldade"]), float(b["horas"]) / 2,
+         ini, data(b["gq1"])),
+    Disc(f"{b['nome']} (GQ2)", int(b["dificuldade"]), float(b["horas"]) / 2,
+         data(b["gq1"]) + timedelta(days=1), data(b["gq2"])),
 )
+
+parse_config = lambda bruto: (
+    lambda ini: Config(
+        ini,
+        float(bruto["limite_semana"]),
+        float(bruto["limite_sabado"]),
+        tuple(t for b in bruto["disciplinas"] for t in etapas(ini)(b)),
+    )
+)(data(bruto["inicio"]))
 
 erros_config = lambda cfg: (
     tuple(
-        f"{d.nome}: peso e dificuldade devem estar entre 1 e 5"
+        f"{d.nome}: dificuldade deve estar entre 1 e 5"
         for d in cfg.disciplinas
-        if not (1 <= d.peso <= 5 and 1 <= d.dificuldade <= 5)
+        if not 1 <= d.dificuldade <= 5
     )
-    + (("limite diário deve ser maior que zero",) if cfg.limite <= 0 else ())
+    + tuple(
+        f"{d.nome}: horas devem ser maiores que zero"
+        for d in cfg.disciplinas
+        if d.horas <= 0
+    )
+    + tuple(
+        f"{d.nome}: a prova deve ser depois do início do estudo"
+        for d in cfg.disciplinas
+        if d.prova <= d.inicio
+    )
+    + (
+        ("limites diários devem ser maiores que zero",)
+        if min(cfg.lim_semana, cfg.lim_sabado) <= 0
+        else ()
+    )
 )
 
 validar = lambda cfg: (
@@ -50,22 +69,30 @@ validar = lambda cfg: (
 )
 
 EXEMPLO = {
-    "inicio": "2026-11-02",
-    "limite_diario": 4,
+    "inicio": "2027-02-22",
+    "limite_semana": 4,
+    "limite_sabado": 2,
     "disciplinas": [
-        {"nome": "Ciência de Dados", "peso": 3, "dificuldade": 4, "prova": "2026-11-06"},
-        {"nome": "Computação Gráfica", "peso": 2, "dificuldade": 3, "prova": "2026-11-09"},
-        {"nome": "Paradigmas", "peso": 2, "dificuldade": 2, "prova": "2026-11-10"},
+        {"nome": "Ciência de Dados", "dificuldade": 4, "horas": 45,
+         "gq1": "2027-04-10", "gq2": "2027-06-12"},
+        {"nome": "Paradigmas", "dificuldade": 2, "horas": 30,
+         "gq1": "2027-04-12", "gq2": "2027-06-14"},
     ],
 }
 
-horas_necessarias = lambda fator: lambda d: d.peso * d.dificuldade * fator
+# prova mais próxima primeiro; em empate, a mais difícil; depois pelo nome
+ordenar = lambda ds: sorted(ds, key=lambda d: (d.prova, -d.dificuldade, d.nome))
 
-# prova mais próxima primeiro (desempate pelo nome)
-ordenar = lambda ds: sorted(ds, key=lambda d: (d.prova, d.nome))
-
+# dias de estudo: segunda a sábado (domingo é livre)
 dias = lambda ini, fim: tuple(
-    ini + timedelta(days=i) for i in range((fim - ini).days + 1)
+    ini + timedelta(days=i)
+    for i in range((fim - ini).days + 1)
+    if (ini + timedelta(days=i)).weekday() != 6
+)
+
+# limite de horas do dia: sábado tem limite menor
+limite_dia = lambda cfg: lambda dia: (
+    cfg.lim_sabado if dia.weekday() == 5 else cfg.lim_semana
 )
 
 # estado = (restante: {nome: horas}, livre_no_dia, alocacoes_do_dia)
@@ -75,12 +102,12 @@ passo_disc = lambda dia: lambda e, d: (
         round(e[1] - h, 6),
         e[2] + ((Alocacao(dia, d.nome, h),) if h > 0 else ()),
     )
-)(min(e[0][d.nome], e[1]) if dia < d.prova else 0)  # só estuda até a véspera
+)(min(e[0][d.nome], e[1]) if d.inicio <= dia < d.prova else 0)  # só estuda no intervalo da etapa
 
 # estado = (restante, alocacoes_acumuladas)
-aloca_dia = lambda ordenadas, limite: lambda estado, dia: (
+aloca_dia = lambda ordenadas, lim: lambda estado, dia: (
     lambda r: (r[0], estado[1] + r[2])
-)(reduce(passo_disc(dia), ordenadas, (estado[0], limite, ())))
+)(reduce(passo_disc(dia), ordenadas, (estado[0], lim(dia), ())))
 
 planejar = lambda cfg: (
     lambda ordenadas, janela, inicial: (
@@ -89,7 +116,7 @@ planejar = lambda cfg: (
             final[1],
             {n: h for n, h in final[0].items() if h > 0},
         )
-    )(reduce(aloca_dia(ordenadas, cfg.limite), janela, (inicial, ())))
+    )(reduce(aloca_dia(ordenadas, limite_dia(cfg)), janela, (inicial, ())))
 )(
     ordenar(cfg.disciplinas),
     dias(
@@ -97,10 +124,9 @@ planejar = lambda cfg: (
         max((d.prova for d in cfg.disciplinas), default=cfg.inicio)
         - timedelta(days=1),
     ),
-    {d.nome: horas_necessarias(cfg.fator)(d) for d in cfg.disciplinas},
+    {d.nome: d.horas for d in cfg.disciplinas},
 )
 
-# Saída: relatório (texto puro) e CSV
 total_disc = lambda alocs, nome: round(
     sum(a.horas for a in alocs if a.nome == nome), 6
 )
@@ -109,10 +135,22 @@ dias_livres = lambda plano: (
     lambda usados: tuple(d for d in plano.janela if d not in usados)
 )({a.dia for a in plano.alocs})
 
-linha_plano = lambda a: f"{fmt_d(a.dia)}  {a.nome:<24}{fmt_h(a.horas):>5} h"
+# fração do material da etapa já estudada ao fim da sessão
+progresso = lambda cfg, alocs: lambda a: (
+    sum(x.horas for x in alocs if x.nome == a.nome and x.dia <= a.dia)
+    / {d.nome: d.horas for d in cfg.disciplinas}[a.nome]
+)
+
+fase = lambda p: "teoria" if p <= 0.5 else ("lista" if p <= 0.85 else "revisão")
+
+linha_plano = lambda cfg, alocs: lambda a: (
+    f"{fmt_d(a.dia)}  {a.nome:<26}{fmt_h(a.horas):>5} h  "
+    f"{fase(progresso(cfg, alocs)(a))}"
+)
 
 linha_resumo = lambda alocs: lambda d: (
-    f"- {d.nome}: {fmt_h(total_disc(alocs, d.nome))} h (prova em {fmt_d(d.prova)})"
+    f"- {d.nome}: {fmt_h(total_disc(alocs, d.nome))} de {fmt_h(d.horas)} h "
+    f"(prova em {fmt_d(d.prova)})"
 )
 
 bloco_aviso = lambda plano: (
@@ -126,26 +164,33 @@ bloco_aviso = lambda plano: (
 )
 
 relatorio = lambda cfg, plano: "\n".join(
-    ("CRONOGRAMA DE ESTUDOS", "", "Dia    Disciplina              Horas", "-" * 38)
-    + tuple(map(linha_plano, plano.alocs))
+    (
+        "CRONOGRAMA DE ESTUDOS",
+        "",
+        f"Dia    {'Disciplina':<26}{'Horas':>5}    Sugestão",
+        "-" * 52,
+    )
+    + tuple(map(linha_plano(cfg, plano.alocs), plano.alocs))
     + ("", "RESUMO")
     + tuple(map(linha_resumo(plano.alocs), ordenar(cfg.disciplinas)))
     + (
         "",
         f"Total: {fmt_h(sum(a.horas for a in plano.alocs))} h em "
         f"{len({a.dia for a in plano.alocs})} dia(s), "
-        f"limite de {fmt_h(cfg.limite)} h/dia.",
-        "Dias livres para revisão: "
-        + (", ".join(map(fmt_d, dias_livres(plano))) or "nenhum"),
+        f"limite de {fmt_h(cfg.lim_semana)} h (seg a sex) "
+        f"e {fmt_h(cfg.lim_sabado)} h (sábado).",
+        f"Dias de estudo sem alocação (revisão livre): {len(dias_livres(plano))}",
     )
     + bloco_aviso(plano)
 )
 
-csv_texto = lambda alocs: (
+csv_texto = lambda cfg, alocs: (
     "\n".join(
-        ("dia,disciplina,horas",)
+        ("dia,disciplina,horas,sugestao",)
         + tuple(
-            f"{a.dia:%d/%m/%Y},{aspas(a.nome)},{fmt_h(a.horas)}" for a in alocs
+            f"{a.dia:%d/%m/%Y},{aspas(a.nome)},{fmt_h(a.horas)},"
+            f"{fase(progresso(cfg, alocs)(a))}"
+            for a in alocs
         )
     )
     + "\n"
@@ -155,7 +200,7 @@ pipeline = compor(
     parse_config,
     validar,
     lambda cfg: (cfg, planejar(cfg)),
-    lambda t: (t[1], relatorio(t[0], t[1])),
+    lambda t: (t[0], t[1], relatorio(t[0], t[1])),
 )
 
 if __name__ == "__main__":
@@ -169,6 +214,6 @@ if __name__ == "__main__":
         if args.entrada
         else EXEMPLO
     )
-    plano, texto = pipeline(bruto)
+    cfg, plano, texto = pipeline(bruto)
     print(texto)
-    args.csv and Path(args.csv).write_text(csv_texto(plano.alocs), encoding="utf-8")
+    args.csv and Path(args.csv).write_text(csv_texto(cfg, plano.alocs), encoding="utf-8")
