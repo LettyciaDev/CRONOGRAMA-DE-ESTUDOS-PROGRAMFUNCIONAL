@@ -103,10 +103,11 @@ passo_disc = lambda dia: lambda e, d: (
         e[2] + ((Alocacao(dia, d.nome, h),) if h > 0 else ()),
     )
 )(min(e[0][d.nome], e[1]) if d.inicio <= dia < d.prova else 0)  # só estuda no intervalo da etapa
+
 # estado = (restante, alocacoes_acumuladas)
-aloca_dia = lambda ordenadas, limite: lambda estado, dia: (
+aloca_dia = lambda ordenadas, lim: lambda estado, dia: (
     lambda r: (r[0], estado[1] + r[2])
-)(reduce(passo_disc(dia), ordenadas, (estado[0], limite, ())))
+)(reduce(passo_disc(dia), ordenadas, (estado[0], lim(dia), ())))
 
 planejar = lambda cfg: (
     lambda ordenadas, janela, inicial: (
@@ -115,7 +116,7 @@ planejar = lambda cfg: (
             final[1],
             {n: h for n, h in final[0].items() if h > 0},
         )
-    )(reduce(aloca_dia(ordenadas, cfg.limite), janela, (inicial, ())))
+    )(reduce(aloca_dia(ordenadas, limite_dia(cfg)), janela, (inicial, ())))
 )(
     ordenar(cfg.disciplinas),
     dias(
@@ -123,7 +124,7 @@ planejar = lambda cfg: (
         max((d.prova for d in cfg.disciplinas), default=cfg.inicio)
         - timedelta(days=1),
     ),
-    {d.nome: horas_necessarias(cfg.fator)(d) for d in cfg.disciplinas},
+    {d.nome: d.horas for d in cfg.disciplinas},
 )
 
 # Saída: relatório (texto puro) e CSV
