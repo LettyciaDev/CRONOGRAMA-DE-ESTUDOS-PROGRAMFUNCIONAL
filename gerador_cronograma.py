@@ -127,7 +127,6 @@ planejar = lambda cfg: (
     {d.nome: d.horas for d in cfg.disciplinas},
 )
 
-# Saída: relatório (texto puro) e CSV
 total_disc = lambda alocs, nome: round(
     sum(a.horas for a in alocs if a.nome == nome), 6
 )
@@ -136,10 +135,22 @@ dias_livres = lambda plano: (
     lambda usados: tuple(d for d in plano.janela if d not in usados)
 )({a.dia for a in plano.alocs})
 
-linha_plano = lambda a: f"{fmt_d(a.dia)}  {a.nome:<24}{fmt_h(a.horas):>5} h"
+# fração do material da etapa já estudada ao fim da sessão
+progresso = lambda cfg, alocs: lambda a: (
+    sum(x.horas for x in alocs if x.nome == a.nome and x.dia <= a.dia)
+    / {d.nome: d.horas for d in cfg.disciplinas}[a.nome]
+)
+
+fase = lambda p: "teoria" if p <= 0.5 else ("lista" if p <= 0.85 else "revisão")
+
+linha_plano = lambda cfg, alocs: lambda a: (
+    f"{fmt_d(a.dia)}  {a.nome:<26}{fmt_h(a.horas):>5} h  "
+    f"{fase(progresso(cfg, alocs)(a))}"
+)
 
 linha_resumo = lambda alocs: lambda d: (
-    f"- {d.nome}: {fmt_h(total_disc(alocs, d.nome))} h (prova em {fmt_d(d.prova)})"
+    f"- {d.nome}: {fmt_h(total_disc(alocs, d.nome))} de {fmt_h(d.horas)} h "
+    f"(prova em {fmt_d(d.prova)})"
 )
 
 bloco_aviso = lambda plano: (
@@ -153,17 +164,22 @@ bloco_aviso = lambda plano: (
 )
 
 relatorio = lambda cfg, plano: "\n".join(
-    ("CRONOGRAMA DE ESTUDOS", "", "Dia    Disciplina              Horas", "-" * 38)
-    + tuple(map(linha_plano, plano.alocs))
+    (
+        "CRONOGRAMA DE ESTUDOS",
+        "",
+        f"Dia    {'Disciplina':<26}{'Horas':>5}    Sugestão",
+        "-" * 52,
+    )
+    + tuple(map(linha_plano(cfg, plano.alocs), plano.alocs))
     + ("", "RESUMO")
     + tuple(map(linha_resumo(plano.alocs), ordenar(cfg.disciplinas)))
     + (
         "",
         f"Total: {fmt_h(sum(a.horas for a in plano.alocs))} h em "
         f"{len({a.dia for a in plano.alocs})} dia(s), "
-        f"limite de {fmt_h(cfg.limite)} h/dia.",
-        "Dias livres para revisão: "
-        + (", ".join(map(fmt_d, dias_livres(plano))) or "nenhum"),
+        f"limite de {fmt_h(cfg.lim_semana)} h (seg a sex) "
+        f"e {fmt_h(cfg.lim_sabado)} h (sábado).",
+        f"Dias de estudo sem alocação (revisão livre): {len(dias_livres(plano))}",
     )
     + bloco_aviso(plano)
 )
