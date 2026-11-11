@@ -179,22 +179,17 @@ pipeline = compor(
     lambda t: (t[1], relatorio(t[0], t[1])),
 )
 
-# if __name__ == "__main__":
-    # ap = argparse.ArgumentParser(description="Gerador de cronograma de estudos")
-    # ap.add_argument("entrada", nargs="?", help="arquivo JSON (padrão: exemplo da proposta)")
-    # ap.add_argument("--csv", help="salva o plano em um arquivo CSV")
-    # args = ap.parse_args()
-# 
-    # bruto = (
-        # json.loads(Path(args.entrada).read_text(encoding="utf-8"))
-        # if args.entrada
-        # else EXEMPLO
-    # )
-    # plano, texto = pipeline(bruto)
-    # print(texto)
-    # args.csv and Path(args.csv).write_text(csv_texto(plano.alocs), encoding="utf-8")
+if __name__ == "__main__":
+    ap = argparse.ArgumentParser(description="Gerador de cronograma de estudos")
+    ap.add_argument("entrada", nargs="?", help="arquivo JSON (padrão: exemplo da proposta)")
+    ap.add_argument("--csv", help="salva o plano em um arquivo CSV")
+    args = ap.parse_args()
 
-cfg = validar(parse_config(EXEMPLO))
-print(len(cfg.disciplinas))
-print(cfg.disciplinas[0])
-print(erros_config(cfg._replace(lim_sabado=0)))
+    bruto = (
+        json.loads(Path(args.entrada).read_text(encoding="utf-8"))
+        if args.entrada
+        else EXEMPLO
+    )
+    plano, texto = pipeline(bruto)
+    print(texto)
+    args.csv and Path(args.csv).write_text(csv_texto(plano.alocs), encoding="utf-8")
