@@ -56,7 +56,7 @@ def monta_entrada(inicio, lim_semana, lim_sabado, tabela):
 
 
 # ---------- cabeçalho ----------
-st.title("📚 Cronograma de Estudos")
+st.title("Cronograma de Estudos")
 st.caption("Informe suas disciplinas e as datas das provas. O cronograma é gerado até a véspera de cada GQ.")
 
 # ---------- barra lateral: configuração geral ----------
@@ -147,7 +147,7 @@ if gerar:
     else:
         st.success("Todas as horas couberam no cronograma.")
 
-    aba1, aba2, aba3 = st.tabs(["📅 Dia a dia", "📊 Resumo por etapa", "🗓️ Por semana"])
+    aba1, aba2, aba3 = st.tabs(["Dia a dia", "Resumo por etapa", "Por semana"])
 
     with aba1:
         filtro = st.multiselect("Filtrar disciplina", sorted(linhas["Disciplina"].unique()))
@@ -184,7 +184,7 @@ if gerar:
         st.bar_chart(semanal)
 
     st.download_button(
-        "⬇️ Baixar cronograma em CSV",
+        "Baixar cronograma em CSV",
         data=csv_texto(cfg, alocs),
         file_name="cronograma.csv",
         mime="text/csv",
